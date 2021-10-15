@@ -1,7 +1,10 @@
+use std::fmt;
+
 fn main() {}
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::{collections::HashSet, hash::Hash, iter::FromIterator};
 
     use rand::{prelude::SliceRandom, thread_rng};
@@ -768,5 +771,347 @@ mod tests {
                 ('d', "111".to_string()),
             ]
         )
+    }
+
+    #[test]
+    fn p55() {
+        fn cbal_trees(n: usize, symbol: char) -> Vec<Tree<char>> {
+            if n == 0 {
+                vec![Tree::end()]
+            } else if (n - 1) % 2 == 0 {
+                let subtrees = cbal_trees((n - 1) / 2, symbol);
+
+                subtrees
+                    .iter()
+                    .flat_map(|s| {
+                        subtrees
+                            .iter()
+                            .map(move |s_| Tree::node(symbol, s.clone(), s_.clone()))
+                    })
+                    .collect()
+            } else {
+                let subtrees1 = cbal_trees(n / 2, symbol);
+                let subtrees2 = cbal_trees(n / 2 - 1, symbol);
+
+                subtrees1
+                    .iter()
+                    .flat_map(|s1| {
+                        subtrees2.iter().flat_map(move |s2| {
+                            vec![
+                                Tree::node(symbol, s1.clone(), s2.clone()),
+                                Tree::node(symbol, s2.clone(), s1.clone()),
+                            ]
+                        })
+                    })
+                    .collect()
+            }
+        }
+
+        // println!("{:#?}", cbal_trees(4, 'x'));
+    }
+
+    #[test]
+    fn p56() {
+        // not interested in value
+        fn is_symmetric<T: std::fmt::Display>(tree: &Tree<T>) -> bool {
+            match tree {
+                Tree::End => true,
+                Tree::Node {
+                    value: _,
+                    left,
+                    right,
+                } => left.is_mirror_of(right),
+            }
+        }
+        let symmetric_tree = Tree::node('x', Tree::leaf('y'), Tree::leaf('z'));
+        assert_eq!(is_symmetric(&symmetric_tree), true);
+        let symmetric_tree = Tree::node('x', Tree::leaf('x'), Tree::end());
+        assert_eq!(is_symmetric(&symmetric_tree), false);
+    }
+
+    #[test]
+    fn p57() {
+        fn add_value<T: std::fmt::Display + std::cmp::PartialOrd + Copy>(
+            tree: &mut Tree<T>,
+            value: T,
+        ) {
+            match tree {
+                Tree::End => *tree = Tree::leaf(value),
+                Tree::Node {
+                    value: tree_value,
+                    left,
+                    right,
+                } => {
+                    if value < *tree_value {
+                        add_value(left, value);
+                    } else {
+                        add_value(right, value);
+                    }
+                }
+            }
+        }
+
+        fn from_list<T: std::fmt::Display + Copy + std::cmp::PartialOrd>(v: &Vec<T>) -> Tree<T> {
+            let mut tree = Tree::end();
+            for x in v {
+                add_value(&mut tree, *x);
+            }
+            tree
+        }
+
+        let mut tree = Tree::end();
+        add_value(&mut tree, 2);
+        add_value(&mut tree, 3);
+        add_value(&mut tree, 0);
+        assert_eq!(tree, Tree::node(2, Tree::leaf(0), Tree::leaf(3)));
+    }
+
+    #[test]
+    fn p58() {
+        fn balanced_trees<T: fmt::Display + Copy>(n: usize, value: T) -> Vec<Tree<T>> {
+            if n == 0 {
+                vec![Tree::End]
+            } else if (n - 1) % 2 == 0 {
+                let balanced_subtrees = balanced_trees((n - 1) / 2, value);
+                balanced_subtrees
+                    .iter()
+                    .flat_map(|s| {
+                        balanced_subtrees
+                            .iter()
+                            .map(move |s_| Tree::node(value, s.clone(), s_.clone()))
+                    })
+                    .collect()
+            } else {
+                let balanced_subtrees1 = balanced_trees(n / 2, value);
+                let balanced_subtrees2 = balanced_trees(n / 2 - 1, value);
+                balanced_subtrees1
+                    .iter()
+                    .flat_map(|s1| {
+                        balanced_subtrees2.iter().flat_map(move |s2| {
+                            vec![
+                                Tree::node(value, s1.clone(), s2.clone()),
+                                Tree::node(value, s2.clone(), s1.clone()),
+                            ]
+                        })
+                    })
+                    .collect()
+            }
+        }
+
+        fn is_symmetric<T: fmt::Display>(tree: &Tree<T>) -> bool {
+            match tree {
+                Tree::End => true,
+                Tree::Node {
+                    value: _,
+                    left,
+                    right,
+                } => left.is_mirror_of(right),
+            }
+        }
+
+        let balanced_symbetric_trees: Vec<Tree<char>> = balanced_trees(5, 'x')
+            .into_iter()
+            .filter(|tree| is_symmetric(tree))
+            .collect();
+    }
+
+    #[test]
+    fn p59() {
+        fn hbal_trees<T: fmt::Display + Copy>(height: usize, value: T) -> Vec<Tree<T>> {
+            if height == 0 {
+                vec![Tree::End]
+            } else if height == 1 {
+                vec![Tree::leaf(value)]
+            } else {
+                let subtrees_height_ng_1 = hbal_trees(height - 1, value);
+                let subtrees_height_ng_2 = hbal_trees(height - 2, value);
+                let mut res = vec![];
+                res.extend(subtrees_height_ng_1.iter().flat_map(|tree_ng_1| {
+                    subtrees_height_ng_2.iter().flat_map(move |tree_ng_2| {
+                        vec![
+                            Tree::node(value, tree_ng_1.clone(), tree_ng_2.clone()),
+                            Tree::node(value, tree_ng_2.clone(), tree_ng_1.clone()),
+                        ]
+                    })
+                }));
+                res.extend(subtrees_height_ng_1.iter().flat_map(|tree_ng_1| {
+                    subtrees_height_ng_1.iter().map(move |tree_ng_1_| {
+                        Tree::node(value, tree_ng_1.clone(), tree_ng_1_.clone())
+                    })
+                }));
+                res
+            }
+        }
+
+        let trees = hbal_trees(3, 'x');
+        assert_eq!(trees.len(), 15);
+    }
+
+    #[test]
+    fn p60() {
+        fn hbal_trees<T: fmt::Display + Copy>(height: usize, value: T) -> Vec<Tree<T>> {
+            if height == 0 {
+                vec![Tree::End]
+            } else if height == 1 {
+                vec![Tree::leaf(value)]
+            } else {
+                let subtrees_height_ng_1 = hbal_trees(height - 1, value);
+                let subtrees_height_ng_2 = hbal_trees(height - 2, value);
+                let mut res = vec![];
+                res.extend(subtrees_height_ng_1.iter().flat_map(|tree_ng_1| {
+                    subtrees_height_ng_2.iter().flat_map(move |tree_ng_2| {
+                        vec![
+                            Tree::node(value, tree_ng_1.clone(), tree_ng_2.clone()),
+                            Tree::node(value, tree_ng_2.clone(), tree_ng_1.clone()),
+                        ]
+                    })
+                }));
+                res.extend(subtrees_height_ng_1.iter().flat_map(|tree_ng_1| {
+                    subtrees_height_ng_1.iter().map(move |tree_ng_1_| {
+                        Tree::node(value, tree_ng_1.clone(), tree_ng_1_.clone())
+                    })
+                }));
+                res
+            }
+        }
+
+        fn min_hbal_nodes(height: usize) -> usize {
+            let trees = hbal_trees(3, 'x');
+            trees
+                .iter()
+                .reduce(|t1, t2| {
+                    if t1.node_count() < t2.node_count() {
+                        t1
+                    } else {
+                        t2
+                    }
+                })
+                .unwrap()
+                .node_count()
+        }
+
+        assert_eq!(min_hbal_nodes(3), 4);
+    }
+
+    #[test]
+    fn p61() {
+        let tree = Tree::node('x', Tree::leaf('x'), Tree::end());
+        assert_eq!(tree.leaf_count(), 1);
+    }
+
+    #[test]
+    fn p62() {
+        fn leaf_list<T: fmt::Display + Copy>(tree: &Tree<T>) -> Vec<T> {
+            match tree {
+                Tree::End => {
+                    vec![]
+                }
+                Tree::Node { value, left, right } => match (left.as_ref(), right.as_ref()) {
+                    (Tree::End, Tree::End) => {
+                        vec![*value]
+                    }
+                    _ => {
+                        let mut res = vec![];
+                        res.extend(leaf_list(left));
+                        res.extend(leaf_list(right));
+                        res
+                    }
+                },
+            }
+        }
+        let tree = Tree::node(
+            'a',
+            Tree::leaf('b'),
+            Tree::node('c', Tree::leaf('d'), Tree::leaf('e')),
+        );
+
+        assert_eq!(leaf_list(&tree), vec!['b', 'd', 'e']);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Tree<T: fmt::Display> {
+    Node {
+        value: T,
+        left: Box<Tree<T>>,
+        right: Box<Tree<T>>,
+    },
+    End,
+}
+
+impl<T: fmt::Display> Tree<T> {
+    fn node_count(&self) -> usize {
+        match self {
+            Tree::End => 0,
+            Tree::Node {
+                value: _,
+                left,
+                right,
+            } => left.node_count() + right.node_count() + 1,
+        }
+    }
+    fn leaf_count(&self) -> usize {
+        match self {
+            Tree::End => 0,
+            Tree::Node {
+                value: _,
+                left,
+                right,
+            } => match (left.as_ref(), right.as_ref()) {
+                (Tree::End, Tree::End) => 1,
+                _ => left.leaf_count() + right.leaf_count(),
+            },
+        }
+    }
+    fn is_mirror_of(&self, other: &Tree<T>) -> bool {
+        match &self {
+            Tree::End => match &other {
+                Tree::End => true,
+                _ => false,
+            },
+            Tree::Node {
+                value: _,
+                left,
+                right,
+            } => match &other {
+                Tree::End => false,
+                Tree::Node {
+                    value: _,
+                    left: other_left,
+                    right: other_right,
+                } => left.is_mirror_of(other_right) && right.is_mirror_of(other_left),
+            },
+        }
+    }
+}
+
+impl<T: fmt::Display> Tree<T> {
+    fn node(value: T, left: Tree<T>, right: Tree<T>) -> Tree<T> {
+        Tree::Node {
+            value,
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
+    fn leaf(value: T) -> Tree<T> {
+        Tree::Node {
+            value,
+            left: Box::new(Tree::End),
+            right: Box::new(Tree::End),
+        }
+    }
+
+    fn end() -> Tree<T> {
+        Tree::End
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for Tree<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Tree::Node { value, left, right } => write!(f, "T({} {} {})", value, left, right),
+            Tree::End => write!(f, "."),
+        }
     }
 }
